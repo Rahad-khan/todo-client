@@ -1,52 +1,71 @@
-import React, { useState } from "react";
+import axios from "axios";
+import React from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { useQuery } from "react-query";
+import { toast } from "react-toastify";
+import auth from "../firebase.init";
+import Loading from "./Loading";
 import TodoCard from "./TodoCard";
 
 const Todo = () => {
-    const [todos, setTodos] = useState([]);
+  const [user, loading] = useAuthState(auth);
 
-    const handleAddTodo = (e) => {
-        e.preventDefault();
-        const todoTitle = e.target.title.value;
-        const description = e.target.description.value;
-        const todo = [
-            {title:todoTitle, description}
-        ]
-        setTodos(todo)
-        console.log(todo);
+  
+  const { data, isLoading, refetch } = useQuery("todos", async () => {
+    return await axios.get(`https://mytodo-server1274.herokuapp.com/todo?email=${user.email}`);
+  });
+  if (isLoading || loading) {
+    return <Loading></Loading>;
+  }
+  console.log(data.data);
+  const handleAddTodo = async (e) => {
+    e.preventDefault();
+    const email = user.email
+    const todoTitle = e.target.title.value;
+    const description = e.target.description.value;
+    const todo = { title: todoTitle, description, complete:false, email };
+
+    const { data } = await axios.post("https://mytodo-server1274.herokuapp.com/todo", todo);
+    if (data?.insertedId) {
+      toast.success("Your Note Added SuccessFully");
+      refetch();
+      e.target.reset();
     }
-    console.log(todos);
+
+    console.log(todo);
+  };
   return (
     <div>
-      <h1 className="text-3xl font-semibold text-cyan-600">Your ToDo</h1>
+      <h1 className="text-3xl font-semibold text-cyan-600">My notes</h1>
 
       <form onSubmit={handleAddTodo}>
-        <div class="form-control w-full max-w-xs">
-          <label class="label">
-            <span class="label-text">Title</span>
+        <div className="form-control w-full max-w-xs">
+          <label className="label">
+            <span className="label-text">Title</span>
           </label>
           <input
             name="title"
             type="text"
             placeholder="Type here"
-            class="input input-bordered w-full max-w-xs"
+            className="input input-bordered w-full max-w-xs"
           />
         </div>
-        <div class="form-control w-full max-w-xs">
-          <label class="label">
-            <span class="label-text">Description</span>
+        <div className="form-control w-full max-w-xs">
+          <label className="label">
+            <span className="label-text">Description</span>
           </label>
           <textarea
             name="description"
-            class="textarea textarea-bordered"
-            placeholder="Bio"
+            className="textarea textarea-bordered"
+            placeholder="Your Notes"
           ></textarea>
         </div>
         <input className="btn btn-outline mt-2" type="submit" value="Add" />
       </form>
-      <div className="grid md:grid-cols-3">
-          {
-              todos.map(todo => <TodoCard todo={todo}></TodoCard>)
-          }
+      <div className="grid md:grid-cols-3 gap-4">
+        {data.data.map((todo) => (
+          <TodoCard key={todo._id} refetch={refetch} todo={todo}></TodoCard>
+        ))}
       </div>
     </div>
   );
